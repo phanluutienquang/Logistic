@@ -1,0 +1,89 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: pdo_mysql, bcmath, gd, zip, xml
+
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
+
+      - name: Install Dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        working-directory: ./source
+
+      # Uncomment below to run PHPUnit tests if you have them configured
+      # - name: Run Test Suite
+      #   run: vendor/bin/phpunit
+      #   working-directory: ./source
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # Only run deploy on master/main branch pushes, not pull requests
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          # Define these secrets in your GitHub repository settings
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/logistic-app:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/logistic-app:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/logistic-app:buildcache,mode=max
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          # Define these secrets in your GitHub repository settings
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          # Alternatively use password if key is not available
+          # password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /opt/logistic-app
+            # Pull the new image
+            docker-compose pull web
+            # Recreate the container
+            docker-compose up -d --no-deps --build web
+            # Run database migrations if any (assuming you have a script for it)
+            # docker exec logistic_web php source/think migrate:run
