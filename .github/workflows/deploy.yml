@@ -20,7 +20,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '7.4'
+          php-version: '7.3'
           extensions: pdo_mysql, bcmath, gd, zip, xml
 
       - name: Cache Composer packages
@@ -33,7 +33,7 @@ jobs:
             ${{ runner.os }}-php-
 
       - name: Install Dependencies
-        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist --ignore-platform-reqs
         working-directory: ./source
 
       # Uncomment below to run PHPUnit tests if you have them configured
