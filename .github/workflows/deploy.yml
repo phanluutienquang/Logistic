@@ -70,20 +70,30 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/logistic-app:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/logistic-app:buildcache,mode=max
 
+      # - name: Deploy to Server via SSH
+      #   uses: appleboy/ssh-action@v0.1.7
+      #   with:
+      #     # Define these secrets in your GitHub repository settings
+      #     host: ${{ secrets.SERVER_HOST }}
+      #     username: ${{ secrets.SERVER_USER }}
+      #     key: ${{ secrets.SERVER_SSH_KEY }}
+      #     # Alternatively use password if key is not available
+      #     # password: ${{ secrets.SERVER_PASSWORD }}
+      #     script: |
+      #       cd /opt/logistic-app
+      #       # Pull the new image
+      #       docker-compose pull web
+      #       # Recreate the container
+      #       docker-compose up -d --no-deps --build web
+      #       # Run database migrations if any (assuming you have a script for it)
+      #       # docker exec logistic_web php source/think migrate:run
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
-          # Define these secrets in your GitHub repository settings
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          # Alternatively use password if key is not available
-          # password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd /opt/logistic-app
-            # Pull the new image
-            docker-compose pull web
-            # Recreate the container
-            docker-compose up -d --no-deps --build web
-            # Run database migrations if any (assuming you have a script for it)
-            # docker exec logistic_web php source/think migrate:run
+           cd /opt/logistic-app
+           docker-compose pull web
+           docker-compose up -d --no-deps web

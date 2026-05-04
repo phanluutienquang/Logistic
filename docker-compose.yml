@@ -1,17 +1,61 @@
+# version: '3.8'
+
+# services:
+#   web:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: logistic_web
+#     restart: unless-stopped
+#     ports:
+#       - "8080:80"
+#     volumes:
+#       # Mount codebase for local development (remove in production)
+#       - ./:/var/www/html
+#     environment:
+#       - DB_HOST=db
+#       - DB_PORT=3306
+#       - DB_DATABASE=xinsuju_dev
+#       - DB_USERNAME=test
+#       - DB_PASSWORD=123456
+#     depends_on:
+#       - db
+#     networks:
+#       - logistic_network
+
+#   db:
+#     image: mysql:8.0
+#     container_name: logistic_db
+#     restart: unless-stopped
+#     ports:
+#       - "3306:3306"
+#     environment:
+#       MYSQL_DATABASE: xinsuju_dev
+#       MYSQL_USER: test
+#       MYSQL_PASSWORD: 123456
+#       MYSQL_ROOT_PASSWORD: rootpassword
+#     volumes:
+#       - dbdata:/var/lib/mysql
+#     # Uncomment and modify to load an initial database dump
+#     # - ./database.sql:/docker-entrypoint-initdb.d/init.sql
+#     networks:
+#       - logistic_network
+
+# networks:
+#   logistic_network:
+#     driver: bridge
+
+# volumes:
+#   dbdata:
 version: '3.8'
 
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: YOUR_DOCKERHUB_USERNAME/logistic-app:latest
     container_name: logistic_web
     restart: unless-stopped
     ports:
       - "8080:80"
-    volumes:
-      # Mount codebase for local development (remove in production)
-      - ./:/var/www/html
     environment:
       - DB_HOST=db
       - DB_PORT=3306
@@ -27,8 +71,6 @@ services:
     image: mysql:8.0
     container_name: logistic_db
     restart: unless-stopped
-    ports:
-      - "3306:3306"
     environment:
       MYSQL_DATABASE: xinsuju_dev
       MYSQL_USER: test
@@ -36,8 +78,6 @@ services:
       MYSQL_ROOT_PASSWORD: rootpassword
     volumes:
       - dbdata:/var/lib/mysql
-    # Uncomment and modify to load an initial database dump
-    # - ./database.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - logistic_network
 
