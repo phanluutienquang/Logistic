@@ -95,5 +95,12 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
            cd /opt/logistic-app
-           docker-compose pull web
-           docker-compose up -d --no-deps web
+  
+           echo "Pull latest code..."
+           git pull origin main
+
+           echo "Stop old containers..."
+           docker compose down
+
+           echo "Build & start new containers..."
+           docker compose up -d --build
