@@ -282,100 +282,145 @@ class Passport extends Controller
  *     )
  * )
  */
+// public function loginLine()
+// {
+//     // 1. Get idToken from request
+//     $idToken = $this->request->param('idToken');
+
+//     if (empty($idToken)) {
+//         return $this->renderError("Missing idToken");
+//     }
+
+//     // 2. Load LINE Channel ID from config
+//     $channelId = config('line_channel_id');
+
+//     if (empty($channelId) || $channelId === 'YOUR_LINE_CHANNEL_ID') {
+//         return $this->renderError("LINE_CHANNEL_ID not configured properly in config.php");
+//     }
+
+//     // 3. Verify idToken with LINE API
+//     $ch = curl_init();
+
+//     curl_setopt($ch, CURLOPT_URL, "https://api.line.me/oauth2/v2.1/verify");
+//     curl_setopt($ch, CURLOPT_POST, true);
+//     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+//         'id_token' => $idToken,
+//         'client_id' => $channelId
+//     ]));
+//     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+//     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+//     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For some environments
+
+//     $response = curl_exec($ch);
+
+//     // Handle CURL error
+//     if ($response === false) {
+//         $error = curl_error($ch);
+//         curl_close($ch);
+//         return $this->renderError("LINE verify request failed: " . $error);
+//     }
+
+//     curl_close($ch);
+
+//     // 4. Decode response
+//     $data = json_decode($response, true);
+
+//     if (!is_array($data)) {
+//         return $this->renderError("Invalid LINE response");
+//     }
+
+//     // 5. Validate token payload
+//     if (isset($data['error'])) {
+//         return $this->renderError("LINE verification error: " . ($data['error_description'] ?? $data['error']));
+//     }
+
+//     if (!isset($data['sub'])) {
+//         return $this->renderError("Invalid LINE token: sub missing");
+//     }
+
+//     // Check audience (must match your Channel ID)
+//     if (!isset($data['aud']) || $data['aud'] !== $channelId) {
+//         return $this->renderError("Invalid audience: expected " . $channelId . " but got " . ($data['aud'] ?? 'nothing'));
+//     }
+
+//     // Check issuer
+//     if (!isset($data['iss']) || $data['iss'] !== 'https://access.line.me') {
+//         return $this->renderError("Invalid issuer");
+//     }
+
+//     // Check expiration
+//     if (!isset($data['exp']) || $data['exp'] < time()) {
+//         return $this->renderError("Token expired");
+//     }
+
+//     // 6. Extract user info from idToken
+//     $lineUserId = $data['sub'];            // unique LINE user ID
+//     $nickname   = $data['name'] ?? '';
+//     $avatar     = $data['picture'] ?? '';
+
+//     // 7. Call service to login/register user
+//     $LoginService = new LoginService;
+
+//     $params = [
+//         'line_user_id' => $lineUserId,
+//         'nickname'     => $nickname,
+//         'avatar'       => $avatar,
+//         'wxapp_id'     => $this->wxapp_id
+//     ];
+
+//     if (!$LoginService->loginMpLine($params)) {
+//         return $this->renderError($LoginService->getError() ?: 'Login failed');
+//     }
+
+//     // 8. Return system token
+//     $userInfo = $LoginService->getUserInfo();
+
+//     return $this->renderSuccess([
+//         'userId'       => (int)$userInfo['user_id'],
+//         'token'        => $LoginService->getToken((int)$userInfo['user_id']),
+//         'line_user_id' => $lineUserId
+//     ], 'LINE login successful');
+// }
+// }
 public function loginLine()
 {
-    // 1. Get idToken from request
+    // 1. (Vẫn giữ) Lấy idToken từ request
     $idToken = $this->request->param('idToken');
 
-    if (empty($idToken)) {
-        return $this->renderError("Missing idToken");
-    }
+    // --- BẮT ĐẦU ĐOẠN SỬA ĐỂ TEST ---
+    
+    // Gán giả lập dữ liệu trả về từ LINE
+    $lineUserId = 'U_QUANG_TEST_0001'; // ID giả để test
+    $nickname   = 'Quang Developer';
+    $avatar     = 'https://liff.line.me/img/logo.png';
+    
+    /* Ông tạm thời COMMENT hết từ bước 2 đến bước 5 lại
+       để nó không gọi lên server LINE nữa.
+    */
 
-    // 2. Load LINE Channel ID from config/env
-    // $channelId = env('LINE_CHANNEL_ID'); // IMPORTANT: set this in .env
-    $channelId = config('line_channel_id');
+    // --- KẾT THÚC ĐOẠN SỬA ---
 
-    if (empty($channelId)) {
-        return $this->renderError("LINE_CHANNEL_ID not configured");
-    }
-
-    // 3. Verify idToken with LINE API
-    $ch = curl_init();
-
-    curl_setopt($ch, CURLOPT_URL, "https://api.line.me/oauth2/v2.1/verify");
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-        'id_token' => $idToken,
-        'client_id' => $channelId
-    ]));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-
-    $response = curl_exec($ch);
-
-    // Handle CURL error
-    if ($response === false) {
-        curl_close($ch);
-        return $this->renderError("LINE verify request failed");
-    }
-
-    curl_close($ch);
-
-    // 4. Decode response
-    $data = json_decode($response, true);
-
-    if (!is_array($data)) {
-        return $this->renderError("Invalid LINE response");
-    }
-
-    // (Optional) Debug log
-    // file_put_contents('line_verify.log', $response . PHP_EOL, FILE_APPEND);
-
-    // 5. Validate token payload
-    if (!isset($data['sub'])) {
-        return $this->renderError("Invalid LINE token");
-    }
-
-    // Check audience (must match your Channel ID)
-    if (!isset($data['aud']) || $data['aud'] !== $channelId) {
-        return $this->renderError("Invalid audience");
-    }
-
-    // Check issuer
-    if (!isset($data['iss']) || $data['iss'] !== 'https://access.line.me') {
-        return $this->renderError("Invalid issuer");
-    }
-
-    // Check expiration
-    if (!isset($data['exp']) || $data['exp'] < time()) {
-        return $this->renderError("Token expired");
-    }
-
-    // 6. Extract user info from idToken
-    $lineUserId = $data['sub'];            // unique LINE user ID
-    $nickname   = $data['name'] ?? '';
-    $avatar     = $data['picture'] ?? '';
-
-    // 7. Call service to login/register user
-    $LoginService = new Login;
+    // 7. Call service to login/register user (ĐOẠN NÀY LÀ QUAN TRỌNG NHẤT)
+    $LoginService = new \app\api\service\passport\Login; // Nhớ check đúng namespace
 
     $params = [
         'line_user_id' => $lineUserId,
         'nickname'     => $nickname,
-        'avatar'       => $avatar
+        'avatar'       => $avatar,
+        'wxapp_id'     => $this->wxapp_id // Thường là 10001 từ Header Postman
     ];
 
     if (!$LoginService->loginMpLine($params)) {
-        return $this->renderError($LoginService->getError());
+        return $this->renderError($LoginService->getError() ?: 'Login failed');
     }
 
-    // 8. Return your system token (JWT/session)
+    // 8. Trả về kết quả
     $userInfo = $LoginService->getUserInfo();
 
     return $this->renderSuccess([
         'userId'       => (int)$userInfo['user_id'],
         'token'        => $LoginService->getToken((int)$userInfo['user_id']),
         'line_user_id' => $lineUserId
-    ], 'LINE login successful');
+    ], 'LINE login successful (TEST MODE)');
 }
 }

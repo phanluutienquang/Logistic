@@ -238,7 +238,7 @@ return [
     'en_key' => 'slowertyy9383764726',
     'wxapp_id' =>'10001',
 
-    'line_channel_id' => 'YOUR_LINE_CHANNEL_ID',
+    'line_channel_id' => '2009933638',
     
     // 打印任务日志开关
     'print_task_log_enabled' => true,  // false=关闭, true=开启

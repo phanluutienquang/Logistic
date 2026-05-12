@@ -8,6 +8,7 @@ use think\Cache;
 use yiovo\captcha\facade\CaptchaApi;
 use app\api\model\{User as UserModel, Setting as SettingModel};
 use app\api\service\{user\Oauth as OauthService, user\Avatar as AvatarService, passport\Party as PartyService};
+use app\api\model\line\User as LineUserModel;
 use app\api\validate\passport\Login as ValidateLogin;
 use app\api\model\dealer\Referee as RefereeModel;
 use app\common\service\Basics;
@@ -291,64 +292,90 @@ class Login extends Basics
         return $this->setSession();
     }
 
-    /**
+/**
  * Quick login: LINE Mini App user
  * @param array $data
  * @return bool
  */
 public function loginMpLine(array $data): bool
 {
+    // 1. Check input parameters
     if (empty($data['line_user_id'])) {
         $this->error = 'Missing line_user_id';
         return false;
     }
 
-    // Find user by LINE ID (stored in open_id)
-    $userInfo = UserModel::detail([
-        'open_id' => $data['line_user_id'],
-        'is_delete' => 0
-    ]);
+    $wxapp_id = $data['wxapp_id'] ?? (new UserModel)->getWxappid();
 
-    if (empty($userInfo)) {
-        // Create new user
-        $setting = SettingModel::getItem('store');
+    // 2. Find user in yoshop_line_user table
+    $lineUserModel = new LineUserModel; 
+    $lineUser = $lineUserModel->where([
+        'line_user_id' => $data['line_user_id'],
+        'wxapp_id'     => $wxapp_id
+    ])->find();
 
-        $regData = [
-            'open_id' => $data['line_user_id'],
-            'nickName' => $data['nickname'] ?? 'LINE User',
-            'avatarUrl' => $data['avatar'] ?? '',
+    if (!$lineUser) {
+        // 3. New LINE user - Create a system user first
+        $UserModel = new UserModel;
+        $setting = SettingModel::getItem('store', $wxapp_id);
+        
+        // Prepare new user data
+        $userData = [
+            'nickName' => $data['nickname'] ?: 'LINE User',
+            'avatarUrl' => $data['avatar'] ?: '',
+            'open_id' => 'LINE_' . $data['line_user_id'], // Prefix to avoid collision
             'platform' => 'LINE',
-            'last_login_time' => time(),
-            'wxapp_id' => (new UserModel)->getWxappid(),
+            'birthday' => date('Y-m-d H:i:s'),
+            'last_login_time' => date("Y-m-d H:i:s"),
+            'wxapp_id' => $wxapp_id,
             'paytype' => $setting['moren']['user_pack_in_pay'] ?? 10,
         ];
 
         // Generate user_code if needed
         if ($setting['usercode_mode']['is_show'] == 1 || $setting['usercode_mode']['is_show'] == 2) {
-            $regData['user_code'] = $this->checkUserCode($setting);
+            $userData['user_code'] = $UserModel->checkUserCode(null, $setting);
         }
 
-        $model = new UserModel;
-        if (!$model->save($regData)) {
-            $this->error = 'Failed to create LINE user';
+        // Save new system user
+        if (!$UserModel->save($userData)) {
+            $this->error = 'Failed to create system user';
             return false;
         }
 
-        $this->userInfo = $model;
-    } else {
-        // Update existing user
-        $userInfo->save([
-            'last_login_time' => time(),
-            'nickName' => $data['nickname'] ?? $userInfo['nickName'],
-            'avatarUrl' => $data['avatar'] ?? $userInfo['avatarUrl'],
-        ]);
+        $userId = $UserModel['user_id'];
 
-        $this->userInfo = $userInfo;
+        // 4. Create LINE user binding
+        $lineUser = $lineUserModel;
+        $lineUser->save([
+            'user_id'           => $userId,
+            'line_user_id'      => $data['line_user_id'],
+            'line_display_name' => $data['nickname'],
+            'line_picture_url'  => $data['avatar'],
+            'wxapp_id'          => $wxapp_id,
+            'created_time'      => time(),
+            'updated_time'      => time()
+        ]);
+    } else {
+        // 5. Existing user - Update profile info
+        $lineUser->save([
+            'line_display_name' => $data['nickname'],
+            'line_picture_url'  => $data['avatar'],
+            'updated_time'      => time()
+        ]);
+        
+        $userId = $lineUser['user_id'];
+    }
+
+    // 6. Get system user and set session
+    $this->userInfo = UserModel::detail($userId); 
+    
+    if (!$this->userInfo) {
+        $this->error = 'System user not found';
+        return false;
     }
 
     return $this->setSession();
 }
-
     /**
      * 快捷登录：Zalo小程序用户
      * @param array $data
